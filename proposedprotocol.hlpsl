@@ -1,0 +1,172 @@
+%%%%%%%%%%%  CDC %%%%%%%%%%%%
+role cdc(RD, FG, CDC : agent, SecureChannel1, SecureChannel2: symmetric_key, 
+Abst_modp,Aggregate_signatures,Verify_signature,P, H,Sum: hash_func,
+ SND, RCV : channel(dy))
+played_by CDC
+def=
+local State: nat,
+    IDrd, TIDrd, IDrdfg,CIDk,Urd,UUrd, T1, T2, T3,Secrd, Deltard,Sigmard : text,
+    CKk, Rrd, RRrd, Scdc, Publcdc,GIDk, Qrd, Yrd, Xrd, H1, H2, H3, Eui: text,
+    Egss, SKij, RTSrdj, Secrdj, Secrdfg, Seccdc, PSrd, Publrd,Prird, Rc, Brd: text,
+    SKcdcfg,SKrdj_fog,SKfog_cdc: text,
+    Check_equation, Sigma_agg: text
+ const sp1,sp2,sp3,sp4,sp5,sp6: protocol_id,
+rd_fog_t1,rd_fog_sigmard,fg_cdc_t2,fg_cdc_sigma_agg,fg_cdc_sk,fog_cdc_sk : protocol_id
+init State :=0
+transition
+
+%%% Initialization phase
+1. State = 0 /\ RCV(start) =|>
+State' := 1  /\ Scdc' := new()  /\ Publcdc' := (Scdc'.P) 
+    /\ Rc' := new()     /\ CIDk' := H(Rc')
+    /\ SND({Publcdc'.CIDk'.GIDk}_SecureChannel1) 
+    /\ secret({Scdc',Publcdc',Rc',CIDk'},sp1,{CDC})
+    /\ secret({Publcdc',CIDk',GIDk},sp2,{CDC,RD,FG})
+
+%%%Registration phase%%%    
+1. State = 2 /\ RCV({IDrd}_SecureChannel1)=|>
+State' := 3
+    /\ Rrd' := new()  /\ Brd' := new() 
+    /\ TIDrd' :=  H(IDrd.Brd'.P)
+    /\ Secrd':= new() /\ Secrdfg' := new()
+        /\ CKk' := H(xor(Secrd'.Secrdfg').Rc.CIDk)
+        /\ RRrd' := (Rrd'.P)
+        /\ H1' := H(TIDrd'.GIDk.Publcdc.RRrd')
+        /\ PSrd' := Abst_modp(Sum(Rrd'.Scdc).H1)
+        /\ SND({TIDrd'.CKk'.RRrd'.H1'.Secrd'.Secrdfg'.PSrd'}_SecureChannel2)
+        /\ secret({Brd',TIDrd',CKk',Rrd',RRrd',H1', Secrd',PSrd'}, sp4, {CDC})
+        /\ secret({TIDrd,CKk',RRrd',H1', Secrd',PSrd'}, sp5, {FG,RD})
+
+%%%Login & Authentication phase
+2.State = 2 /\ RCV ((TIDrd'. Publrd'. Sigma_agg'. T2'))=|>
+State' := 7 
+    /\ T3' := new()
+    /\ Check_equation':= Verify_signature(Sigma_agg'. TIDrd'. Publrd'. T2')
+    /\ witness(FG, CDC, fg_cdc_sigma_agg, Sigma_agg') 
+3.State = 2 /\ RCV ((Secrdj'. Secrdfg'.Seccdc'))=|>
+State' := 8 
+    /\ SKcdcfg':= {(Secrdj'. Secrdfg'. Seccdc').UUrd.Publcdc}
+    /\ witness(FG, CDC, fog_cdc_sk, SKcdcfg')  
+end role
+
+
+
+
+%%%%%%%%%%%  Drone %%%%%%%%%%%%
+role drone(RD, FG, CDC : agent, SecureChannel1, SecureChannel2: symmetric_key, 
+Abst_modp,Aggregate_signatures,Verify_signature,P, H,Sum: hash_func,
+ SND, RCV : channel(dy))
+played_by RD
+def=
+local State: nat,
+    IDrd, TIDrd, IDrdfg,CIDk,Urd,UUrd, T1, T2, T3,Secrd, Deltard,Sigmard : text,
+    CKk, Rrd, RRrd, Scdc, Publcdc,GIDk, Qrd, Yrd, Xrd, H1, H2, H3, Eui: text,
+    Egss, SKij, RTSrdj, Secrdj, Secrdfg, Seccdc, PSrd, Publrd,Prird, Rc, Brd: text,
+    SKcdcfg,SKrdj_fog,SKfog_cdc: text,
+    Check_equation, Sigma_agg: text
+ const sp1,sp2,sp3,sp4,sp5,sp6: protocol_id,
+rd_fog_t1,rd_fog_sigmard,fg_cdc_t2,fg_cdc_sigma_agg,fg_cdc_sk,fog_cdc_sk : protocol_id
+init State :=0
+transition
+
+%%%Registration phase
+1. State = 0 /\ RCV(start) =|>
+State':= 2  
+    /\ SND({IDrd}_SecureChannel1)
+    /\ secret({IDrd}, sp3, {RD,CDC,FG})
+2. State = 1 /\ RCV ({TIDrd.CKk.RRrd.H1. Secrd. PSrd}_SecureChannel2) =|>
+ State':= 4   
+    /\ Yrd' := new()  /\ Xrd' := (Yrd.P)
+    /\ H2':= H(TIDrd.Xrd) /\ Qrd' := Sum(RRrd.H2).Xrd
+    /\ Publrd' := (Qrd.Xrd)  /\ Prird' := (PSrd.Yrd)
+    /\ secret({Yrd,H2',Qrd,Publrd,Prird'},sp6,{RD,FG})
+
+%%%Login & Authentication phase
+3. State = 5 /\ RCV(start) =|>
+ State':= 3 
+    /\ T1' := new() /\ Urd' := new() 
+    /\ UUrd' := (Urd.Secrd.P)   /\ H2':= H(TIDrd.Xrd)
+    /\ H3' := H(TIDrd.Publrd.UUrd.T1)
+    /\ Deltard' := Abst_modp(Sum(Urd, H(Sum(PSrd, H2.Secrdj.Yrd))))
+    /\ Sigmard' := (UUrd.Deltard)
+    /\ SND ({TIDrd.Publrd.Sigmard.T1}) 
+    /\ witness(RD, FG, rd_fog_t1, T1)  /\ witness(RD, FG, rd_fog_sigmard, Sigmard)
+4.State = 3 /\ RCV ((Secrdj'. Secrdfg'.Seccdc'))=|>
+State' := 8 
+    /\ SKrdj_fog':= {(Secrdj'. Secrdfg'. Seccdc').UUrd.Publcdc}
+    /\ witness(RD, CDC, rd_fog_sk, SKrdj_fog')  
+end role
+
+%%%%%%%%%%%  FOGDRONE %%%%%%%%%%%%
+role fogdrone(RD, FG, CDC : agent, SecureChannel1, SecureChannel2: symmetric_key, 
+Abst_modp,Collectedallsignatures, Aggregate_signatures,Verify_signature,P, H,Sum: hash_func,
+ SND, RCV : channel(dy))
+played_by FG
+def=
+local State: nat,
+    IDrd, TIDrd, IDrdfg,CIDk,Urd,UUrd, T1, T2, T3,Secrd, Deltard,Sigmard : text,
+    CKk, Rrd, RRrd, Scdc, Publcdc,GIDk, Qrd, Yrd, Xrd, H1, H2, H3, Eui: text,
+    Egss, SKij, RTSrdj, Secrdj, Secrdfg, Seccdc, PSrd, Publrd,Prird, Rc, Brd: text,
+    SKcdcfg,SKrdj_fog,SKfog_cdc: text,
+    Check_equation, Sigma_agg: text
+ const sp1,sp2,sp3,sp4,sp5,sp6: protocol_id,
+rd_fog_t1,rd_fog_sigmard,fg_cdc_t2,fg_cdc_sigma_agg,fg_cdc_sk,fog_cdc_sk : protocol_id
+init State :=0
+transition
+
+1. State = 0  /\ RCV ((TIDrd'. Publrd'. Sigmard'. T1'))=|>
+State' := 6 
+    /\ T2' := new()    /\ H1' := H(TIDrd'.GIDk.Publcdc.Rrd)
+    /\ H2':= H(TIDrd'.Xrd) 
+    /\ Check_equation' := Verify_signature(Sigmard'. TIDrd'. Publrd'. T1')
+    /\ Csig' := Collectedallsignatures(Sigmard')
+    /\ Sigma_agg' := Aggregate_signatures(Sigmard')
+    /\ SND({TIDrd'. Publrd'. Sigma_agg'. T2'}_CDC)
+    /\ witness(FG, CDC, fg_cdc_t2, T2')  /\ witness(FG, CDC, fg_cdc_sigma_agg, Sigma_agg')
+2.State = 6 /\ RCV ((Secrdj'. Secrdfg'.Seccdc'))=|>
+State' := 8 
+    /\ SKfog_cdc':= {(Secrdj'. Secrdfg'. Seccdc').UUrd.Publcdc}
+    /\ witness(FG, CDC, fog_cdc_sk, SKfog_cdc)  
+end role    
+
+
+%%%%%%%%%%% Session %%%%%%%%%%%%
+role session(RD, FG, CDC: agent, SecureChannel1, SecureChannel2: symmetric_key, 
+Abst_modp,Collectedallsignatures, Aggregate_signatures, Verify_signature, P, H, Sum: hash_func) 
+def=
+    local SN1, SN2, SN3, RV1, RV2, RV3: channel(dy) 
+composition
+    cdc(RD, FG, CDC, SecureChannel1, SecureChannel2, Abst_modp, Aggregate_signatures,
+     Verify_signature, P, H, Sum, SN1, RV1)
+    /\ drone(RD, FG, CDC, SecureChannel1, SecureChannel2, Abst_modp, Aggregate_signatures,
+     Verify_signature, P, H, Sum, SN2, RV2 )
+    /\ fogdrone(RD, FG, CDC, SecureChannel1, SecureChannel2, Abst_modp,
+     Aggregate_signatures, Collectedallsignatures,Verify_signature, P, H, Sum, SN3, RV3 )
+end role
+
+role environment()
+def=
+const rd, fg, cdc : agent,
+securechannel1, securechannel2: symmetric_key,
+abst_modp, aggregate_signatures, verify_signature, collectedallsignatures, p, h, sum: hash_func,
+idrd, tidrd, sigma_agg,sigmard : text,
+
+sp1,sp2,sp3,sp4,sp5,sp6: protocol_id,
+rd_fog_t1,rd_fog_sigmard,fg_cdc_t2,fg_cdc_sigma_agg,fg_cdc_sk,rd_fog_sk,fog_cdc_sk  : protocol_id
+
+intruder_knowledge = {rd,fg,idrd,tidrd,h,sigma_agg,sigmard}
+composition
+session(rd, fg, cdc, securechannel1, securechannel2, abst_modp, aggregate_signatures, verify_signature,  collectedallsignatures, p, h, sum) 
+/\ session(i, cdc, rd, securechannel1, securechannel2, abst_modp, aggregate_signatures, verify_signature,  collectedallsignatures, p, h, sum) 
+/\ session(rd, i, fg,  securechannel1, securechannel2, abst_modp, aggregate_signatures, verify_signature,  collectedallsignatures, p, h, sum)
+/\ session(rd, cdc, i, securechannel1, securechannel2, abst_modp, aggregate_signatures, verify_signature,  collectedallsignatures, p, h, sum)
+
+end role
+
+goal
+secrecy_of sp1, sp2, sp3, sp4, sp5, sp6
+authentication_on rd_fog_sigmard, rd_fog_t1, rd_fog_sk
+authentication_on fg_cdc_sigma_agg, fg_cdc_t2, fog_cdc_sk
+end goal
+environment()
+
